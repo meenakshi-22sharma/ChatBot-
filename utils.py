@@ -36,19 +36,19 @@ def get_weather(parameters):
     print("PARAMETRES :   ", parameters)
     print("*************************************************")
     print("*************************************************")
-    # alwys check paramter name from DialogFLow
-    #city="Cambridge"
-    #country = "uk"
     city=parameters.get('geo-city')
+    if city=='':
+        lis=["Not found"]
     #country=parameters.get('geo-country')
-    observation = owm.weather_at_place(city)
-    w = observation.get_weather()
-    wind = w.get_wind()
-    temperature = w.get_temperature('celsius')
-    tomorrow = pyowm.timeutils.tomorrow()
+    else:
+        observation = owm.weather_at_place(city)
+        w = observation.get_weather()
+        wind = w.get_wind()
+        temperature = w.get_temperature('celsius')
+        tomorrow = pyowm.timeutils.tomorrow()
     
-    lis=[wind,temperature]
-    #return observation.get_weather()
+        lis=[wind,temperature]
+    
     return lis
 
 def get_news(parameters):
@@ -56,11 +56,7 @@ def get_news(parameters):
     print("PARAMETRES :   ", parameters)
     print("*************************************************")
     print("*************************************************")
-
-    #print(parameters.get('news_type')[0])
-    # alwys check paramter name from DialogFLow
     client.topic = parameters.get('new_type') # [0]    if typeerror
-    
     client.language = parameters.get('language')
     client.location = parameters.get('geo-country')
     return client.get_news()
@@ -73,16 +69,14 @@ def get_jobs(parameters):
     print("*************************************************")
    
     topic = parameters.get('job_type')
-    
-
     city = parameters.get('geo-city')
-    if(city==""):
-        city="london"
-    if(topic==""):
-        topic="developer"
-    #json_ob = "https://jobs.github.com/positions.json?description={}&location={}".format(topic,country)
-    json_ob = "https://jobs.github.com/positions.json?description={}&location={}".format(topic,city)
+    country=parameters.get('geo-country')
+    if country=='':
+        json_ob = "https://jobs.github.com/positions.json?description={}&location={}".format(topic,city)
+    else:
+        json_ob = "https://jobs.github.com/positions.json?description={}&location={}".format(topic,country)
     reply=requests.get(json_ob)
+
     return reply.json()
 
 def detect_intent_from_text(text, session_id, language_code='en'):
@@ -96,11 +90,18 @@ def fetch_reply(msg,session_id):
     response = detect_intent_from_text(msg,session_id)
     if response.intent.display_name == 'get_jobs':
         news = get_jobs( dict(response.parameters))
-        
+        counter =0
+        flag =0
         job_str='Job list : '
         for row in news:
-            job_str +="\n\n {} \n\n {} \n\n".format(str(row['type']), str(row['url']))
-            
+            flag =1
+            if counter >=6:
+                break
+            #job_str +="\n\n {} \n\n {} \n\n".format(str(row['type']), str(row['url']))
+            counter+=1
+            job_str += "\n\n Title: {}\n Company name: {}\n Company website: {}\n Company Location: {}\n Link to post: ".format(row['title'],row['company'],row['company_url'],row['location'],row['url'])
+        if(flag==0):
+            job_str+="\n Sorry, No job Found !! "  
         return ("",job_str)
     elif response.intent.display_name =='image_whatsapp':
         news_str='First, you have to send us an image !'
@@ -118,24 +119,24 @@ def fetch_reply(msg,session_id):
     elif response.intent.display_name == 'get_weather':
          weather = get_weather( dict(response.parameters))
          weather_str='Here is your weather info:'
-         wind_speed=str(weather[0]['speed'])
-         wind_deg=str(weather[0]['deg'])
-         temp= str(weather[1]['temp'])
-         max_temp=str(weather[1]['temp_max'])
-         min_temp=str(weather[1]['temp_min'])
-        #for row in weather:
-           
-        
-         result="\n\n  WIND : \n   wind speed:{} km/hr\n   wind deg:{} \n\n  TEMPERATURE : \n   temp:{} °C \n   max-temp:{} °C\n   min-temp:{} °C \n\n".format( wind_speed,wind_deg,temp,max_temp,min_temp)
-         weather_str+=result
-         new_temp = {
-             'wind_speed':wind_speed,
-             'wind_deg': wind_deg,
-             'temp': temp,
-             'temp_min':max_temp,
-             'temp_max':min_temp
-            }
-         records.insert_one(new_temp)
+         if weather[0]=="Not found":
+             weather_str=" your city cannot be found ! "
+         else:
+            wind_speed=str(weather[0]['speed'])
+            wind_deg=str(weather[0]['deg'])
+            temp= str(weather[1]['temp'])
+            max_temp=str(weather[1]['temp_max'])
+            min_temp=str(weather[1]['temp_min'])
+            result="\n\n  WIND : \n   wind speed:{} km/hr\n   wind deg:{} \n\n  TEMPERATURE : \n   temp:{} °C \n   max-temp:{} °C\n   min-temp:{} °C \n\n".format( wind_speed,wind_deg,temp,max_temp,min_temp)
+            weather_str+=result
+            new_temp = {
+                 'wind_speed':wind_speed,
+                 'wind_deg': wind_deg,
+                 'temp': temp,
+                 'temp_min':max_temp,
+                 'temp_max':min_temp
+                }
+            records.insert_one(new_temp)
          return ("",weather_str)
     elif response.intent.display_name == 'get_image':
 
